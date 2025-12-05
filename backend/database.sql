@@ -1,0 +1,31 @@
+-- Create Webinar Database
+CREATE DATABASE IF NOT EXISTS webinar;
+USE webinar;
+
+-- Create Users Table
+CREATE TABLE IF NOT EXISTS user (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password VARCHAR(255) NOT NULL,
+  phone VARCHAR(20),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_email (email)
+);
+
+-- Create Payments Table
+CREATE TABLE IF NOT EXISTS payments (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  user_id INT NOT NULL,
+  txn_id VARCHAR(100) UNIQUE NOT NULL,
+  amount DECIMAL(10, 2) NOT NULL,
+  plan_id VARCHAR(50),
+  status VARCHAR(50) DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES user(id),
+  INDEX idx_txn_id (txn_id),
+  INDEX idx_user_id (user_id),
+  INDEX idx_status (status)
+);
