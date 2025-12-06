@@ -5,11 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { CheckCircle2, MessageCircle, Mail, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
-export default function PaymentSuccess() {
+function PaymentSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [paymentData, setPaymentData] = useState(null);
@@ -102,10 +102,8 @@ export default function PaymentSuccess() {
   }, [txnid]);
 
   return (
-    <>
-      <Header />
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
           <CardHeader className="space-y-2 text-center">
             <div className="flex justify-center mb-4">
               <CheckCircle2 className="w-16 h-16 text-green-600" />
@@ -185,6 +183,16 @@ export default function PaymentSuccess() {
           </CardContent>
         </Card>
       </div>
+    );
+  }
+
+export default function PaymentSuccess() {
+  return (
+    <>
+      <Header />
+      <Suspense fallback={<div className="min-h-screen bg-background" />}>
+        <PaymentSuccessContent />
+      </Suspense>
       <Footer />
     </>
   );
