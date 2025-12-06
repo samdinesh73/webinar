@@ -47,15 +47,21 @@ transporter.verify((error, success) => {
 });
 
 // Middleware
+const allowedOrigins = [
+  'https://webinar-three.vercel.app',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+];
+
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
+
 app.use(cors({
-  origin: [
-    'https://webinar-three.vercel.app',
-    'http://localhost:3000', 
-    'http://127.0.0.1:3000',
-    
-    process.env.FRONTEND_URL || ''
-  ].filter(Boolean),
+  origin: allowedOrigins,
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(express.json());
 
@@ -155,7 +161,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: user.id, email: user.email, name: user.name },
+      { id: user.id, email: user.email, name: user.name, role: user.role || 'user' },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -169,6 +175,7 @@ app.post('/api/auth/login', async (req, res) => {
         name: user.name,
         email: user.email,
         phone: user.phone,
+        role: user.role || 'user',
       },
     });
   } catch (error) {
@@ -181,7 +188,7 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/auth/profile', verifyToken, async (req, res) => {
   try {
     const connection = await pool.getConnection();
-    const [users] = await connection.query('SELECT id, name, email, phone, created_at FROM user WHERE id = ?', [
+    const [users] = await connection.query('SELECT id, name, email, phone, role, created_at FROM user WHERE id = ?', [
       req.user.id,
     ]);
     connection.release();
@@ -338,57 +345,70 @@ const sendClassDetailsEmail = async (userEmail, userData) => {
   try {
     const { firstname, planId } = userData;
     
-    // Class details based on plan
-    const classDetails = {
+    // Fetch classes from database based on plan
+    const connection = await pool.getConnection();
+    let query = 'SELECT * FROM classes WHERE (plan_id = ? OR plan_id = "all") ORDER BY class_date ASC';
+    const [dbClasses] = await connection.query(query, [planId]);
+    connection.release();
+
+    console.log(`📧 Fetched ${dbClasses.length} classes for plan: ${planId}`);
+
+    // Format classes for email
+    const classRows = (dbClasses && dbClasses.length > 0) ? 
+      dbClasses.map(cls => {
+        // Format date and time
+        const classDate = new Date(cls.class_date);
+        const formattedDate = classDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const [hours, minutes] = cls.class_time.split(':');
+        const formattedTime = new Date(0, 0, 0, hours, minutes).toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true
+        });
+        
+        return `
+          <tr style="border-bottom: 1px solid #f0f0f0;">
+            <td style="padding: 12px; color: #333;"><strong>${cls.title}</strong><br/><span style="font-size: 12px; color: #999;">Instructor: ${cls.instructor}</span></td>
+            <td style="padding: 12px; color: #666; text-align: right;"><strong>${formattedDate} at ${formattedTime}</strong><br/><span style="font-size: 12px; color: #999;">${cls.duration_minutes} minutes</span></td>
+          </tr>
+        `;
+      }).join('')
+      : '<tr><td colspan="2" style="padding: 12px; text-align: center; color: #999;">No classes scheduled yet</td></tr>';
+
+    // Determine plan title and benefits
+    const planTitles = {
+      pro: 'PRO MASTERCLASS',
+      basic: 'BASIC MASTERCLASS',
+      free: 'FREE MASTERCLASS'
+    };
+
+    const planBenefits = {
       pro: {
-        title: 'PRO MASTERCLASS',
-        classes: [
-          { name: 'E-commerce Growth Hacking', instructor: 'Amitabh Kumar', date: '12 Dec, 7:00 PM', duration: '2 hours' },
-          { name: 'Packaging Design Secrets', instructor: 'Rahul Sharma', date: '14 Dec, 6:00 PM', duration: '1.5 hours' },
-          { name: 'Advanced SEO & Traffic', instructor: 'Priya Singh', date: '16 Dec, 7:00 PM', duration: '2 hours' },
-          { name: 'Customer Psychology & Sales', instructor: 'Vikram Patel', date: '18 Dec, 6:30 PM', duration: '1.5 hours' },
-          { name: 'Supply Chain Optimization', instructor: 'Neha Gupta', date: '20 Dec, 7:00 PM', duration: '2 hours' },
-          { name: 'Building Your Brand Story', instructor: 'Arjun Menon', date: '22 Dec, 6:00 PM', duration: '1.5 hours' },
-        ],
         access: 'Lifetime access to all recordings',
         bonus: 'Q&A sessions, Priority support, Exclusive community'
       },
       basic: {
-        title: 'BASIC MASTERCLASS',
-        classes: [
-          { name: 'E-commerce Fundamentals', instructor: 'Amitabh Kumar', date: '12 Dec, 7:00 PM', duration: '2 hours' },
-          { name: 'Product Photography 101', instructor: 'Rahul Sharma', date: '14 Dec, 6:00 PM', duration: '1.5 hours' },
-        ],
         access: '30 days access to recordings',
         bonus: 'Community access'
       },
       free: {
-        title: 'FREE MASTERCLASS',
-        classes: [
-          { name: 'Introduction to E-commerce', instructor: 'Amitabh Kumar', date: '12 Dec, 7:00 PM', duration: '1 hour' },
-        ],
         access: '7 days access to recording',
         bonus: 'Basic community access'
       }
     };
 
-    const details = classDetails[planId] || classDetails.free;
-    const classRows = details.classes.map(cls => `
-      <tr style="border-bottom: 1px solid #f0f0f0;">
-        <td style="padding: 12px; color: #333;"><strong>${cls.name}</strong><br/><span style="font-size: 12px; color: #999;">Instructor: ${cls.instructor}</span></td>
-        <td style="padding: 12px; color: #666; text-align: right;"><strong>${cls.date}</strong><br/><span style="font-size: 12px; color: #999;">${cls.duration}</span></td>
-      </tr>
-    `).join('');
+    const planTitle = planTitles[planId] || 'MASTERCLASS';
+    const benefits = planBenefits[planId] || planBenefits.free;
 
     const mailOptions = {
       from: process.env.EMAIL_USER || 'your-email@gmail.com',
       to: userEmail,
-      subject: `🎓 Your Class Schedule - ${details.title}`,
+      subject: `🎓 Your Class Schedule - ${planTitle}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px 10px 0 0; text-align: center;">
             <h1 style="color: white; margin: 0;">🎓 Class Details</h1>
-            <p style="color: #e0e0ff; margin: 5px 0 0 0;">${details.title}</p>
+            <p style="color: #e0e0ff; margin: 5px 0 0 0;">${planTitle}</p>
           </div>
           
           <div style="padding: 30px; background-color: #f9f9f9;">
@@ -412,14 +432,14 @@ const sendClassDetailsEmail = async (userEmail, userData) => {
                 <li>Classes are held live on the scheduled dates and times (IST)</li>
                 <li>Recordings will be available within 24 hours after each session</li>
                 <li>Join 15 minutes early for Q&A and networking</li>
-                <li>Access: ${details.access}</li>
+                <li>Access: ${benefits.access}</li>
               </ul>
             </div>
 
             <div style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4caf50;">
               <p style="margin: 0; color: #1b5e20; font-size: 14px;">
                 <strong>🎁 What's Included:</strong><br/>
-                ${details.bonus}
+                ${benefits.bonus}
               </p>
             </div>
 
@@ -462,13 +482,14 @@ const sendClassDetailsEmail = async (userEmail, userData) => {
 // Initiate Payment Route
 app.post('/api/payment/initiate', verifyToken, async (req, res) => {
   try {
-    const { firstname, email, phone, amount, planId } = req.body;
+    const { firstname, email, phone, amount, planId, classId } = req.body;
     const userId = req.user.id;
 
     console.log('=== Payment Initiate ===');
     console.log('User ID:', userId);
     console.log('Amount:', amount);
     console.log('Plan ID:', planId);
+    console.log('Class ID:', classId);
 
     // Validate input
     if (!firstname || !email || !phone || amount === undefined) {
@@ -483,8 +504,8 @@ app.post('/api/payment/initiate', verifyToken, async (req, res) => {
     // Create payment record in database
     const connection = await pool.getConnection();
     const insertResult = await connection.query(
-      'INSERT INTO payments (user_id, txn_id, amount, plan_id, status, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
-      [userId, txnid, amount, planId, 'pending']
+      'INSERT INTO payments (user_id, txn_id, amount, plan_id, class_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())',
+      [userId, txnid, amount, planId, classId || null, 'pending']
     );
     
     console.log('Payment record inserted:', insertResult);
@@ -492,7 +513,7 @@ app.post('/api/payment/initiate', verifyToken, async (req, res) => {
 
     // Create hash for PayU - CORRECT FORMULA
     // Hash = SHA512(key|txnid|amount|productinfo|firstname|email|||||||||||||salt)
-    const productinfo = `Flipkart Masterclass - ${planId}`;
+    const productinfo = classId ? `Flipkart Masterclass - Class Registration` : `Flipkart Masterclass - ${planId}`;
     const hashString = `${PAYU_CONFIG.merchantKey}|${txnid}|${amount}|${productinfo}|${firstname}|${email}|||||||||||${PAYU_CONFIG.salt}`;
     
     console.log('Hash String:', hashString);
@@ -636,20 +657,50 @@ app.post('/api/payment/failure', async (req, res) => {
 app.get('/api/payment/check-status', verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
+    console.log('=== Check Payment Status ===');
+    console.log('User ID:', userId);
 
     const connection = await pool.getConnection();
+    
+    // Get all successful payments for this user
     const [payments] = await connection.query(
-      'SELECT status FROM payments WHERE user_id = ? ORDER BY created_at DESC LIMIT 1',
+      'SELECT id, txn_id, amount, plan_id, class_id, status, created_at FROM payments WHERE user_id = ? ORDER BY created_at DESC',
       [userId]
     );
+    console.log('All payments for user:', payments);
     connection.release();
 
     if (payments.length === 0) {
-      return res.json({ success: true, status: 'no_payment' });
+      return res.json({ success: true, status: 'no_payment', registrations: [] });
     }
 
+    // Get latest payment status
     const latestPayment = payments[0];
-    res.json({ success: true, status: latestPayment.status });
+    
+    // Get all class registrations (successful payments with class_id)
+    const classRegistrations = payments
+      .filter(p => p.status === 'success' && p.class_id)
+      .map(p => ({
+        paymentId: p.id,
+        classId: p.class_id,
+        registeredAt: p.created_at,
+      }));
+
+    console.log('Class registrations:', classRegistrations);
+
+    res.json({ 
+      success: true, 
+      status: latestPayment.status,
+      latestPayment: {
+        id: latestPayment.id,
+        txnId: latestPayment.txn_id,
+        amount: latestPayment.amount,
+        planId: latestPayment.plan_id,
+        classId: latestPayment.class_id,
+        status: latestPayment.status,
+      },
+      registrations: classRegistrations, // All class registrations by user
+    });
   } catch (error) {
     console.error('Payment status check error:', error);
     res.status(500).json({ success: false, message: 'Error checking payment status' });
@@ -767,6 +818,110 @@ app.get('/api/test-email/:email/:plan', async (req, res) => {
 // Health Check
 app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'Server is running' });
+});
+
+// ============= CLASSES ENDPOINTS =============
+
+// Get all upcoming classes
+app.get('/api/classes/upcoming', async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+    const [classes] = await connection.query(
+      'SELECT * FROM classes WHERE class_date >= NOW() ORDER BY class_date ASC'
+    );
+    connection.release();
+
+    res.json({ success: true, classes });
+  } catch (error) {
+    console.error('Error fetching classes:', error);
+    res.status(500).json({ success: false, message: 'Error fetching classes' });
+  }
+});
+
+// Get all classes
+app.get('/api/classes', async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+    const [classes] = await connection.query(
+      'SELECT * FROM classes ORDER BY class_date DESC'
+    );
+    connection.release();
+
+    res.json({ success: true, classes });
+  } catch (error) {
+    console.error('Error fetching classes:', error);
+    res.status(500).json({ success: false, message: 'Error fetching classes' });
+  }
+});
+
+// Create a new class (Admin only)
+app.post('/api/classes', verifyToken, async (req, res) => {
+  try {
+    const { title, description, instructor, class_date, class_time, duration_minutes, price, plan_id, meeting_link } = req.body;
+
+    // Validate input
+    if (!title || !instructor || !class_date || !class_time) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+
+    const connection = await pool.getConnection();
+    
+    const result = await connection.query(
+      'INSERT INTO classes (title, description, instructor, class_date, class_time, duration_minutes, price, plan_id, meeting_link, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+      [title, description || null, instructor, class_date, class_time, duration_minutes || 60, price || 999, plan_id || 'all', meeting_link || null]
+    );
+
+    connection.release();
+
+    res.status(201).json({ 
+      success: true, 
+      message: 'Class created successfully',
+      classId: result[0].insertId 
+    });
+  } catch (error) {
+    console.error('Error creating class:', error);
+    res.status(500).json({ success: false, message: 'Error creating class', error: error.message });
+  }
+});
+
+// Update a class (Admin only)
+app.put('/api/classes/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, instructor, class_date, class_time, duration_minutes, price, plan_id, meeting_link } = req.body;
+
+    const connection = await pool.getConnection();
+    
+    await connection.query(
+      'UPDATE classes SET title = ?, description = ?, instructor = ?, class_date = ?, class_time = ?, duration_minutes = ?, price = ?, plan_id = ?, meeting_link = ? WHERE id = ?',
+      [title, description, instructor, class_date, class_time, duration_minutes, price, plan_id, meeting_link, id]
+    );
+
+    connection.release();
+
+    res.json({ success: true, message: 'Class updated successfully' });
+  } catch (error) {
+    console.error('Error updating class:', error);
+    res.status(500).json({ success: false, message: 'Error updating class' });
+  }
+});
+
+// Delete a class (Admin only)
+app.delete('/api/classes/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const connection = await pool.getConnection();
+    
+    await connection.query('DELETE FROM classes WHERE id = ?', [id]);
+
+    connection.release();
+
+    res.json({ success: true, message: 'Class deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting class:', error);
+    res.status(500).json({ success: false, message: 'Error deleting class' });
+  }
 });
 
 // Start Server

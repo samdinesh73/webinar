@@ -8,7 +8,7 @@ import Footer from '@/components/Footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, Play, Lock, Clapperboard, Package, TrendingUp, Users, Megaphone, BarChart3, CheckCircle } from 'lucide-react';
+import { AlertCircle, Play, Lock, Calendar, Clock, User, ExternalLink, CheckCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function VideosPage() {
@@ -16,6 +16,8 @@ export default function VideosPage() {
   const router = useRouter();
   const [hasAccess, setHasAccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [registeredClasses, setRegisteredClasses] = useState([]);
+  const [classesLoading, setClassesLoading] = useState(true);
   const [paymentStatus, setPaymentStatus] = useState(null);
 
   useEffect(() => {
@@ -26,6 +28,7 @@ export default function VideosPage() {
 
     if (token && user) {
       checkPaymentStatus();
+      fetchRegisteredClasses();
     }
   }, [token, user, loading, router]);
 
@@ -54,14 +57,52 @@ export default function VideosPage() {
     }
   };
 
+  const fetchRegisteredClasses = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payment/check-status`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.registrations && Array.isArray(data.registrations)) {
+          // Get class IDs that user is registered for
+          const registeredClassIds = data.registrations
+            .map(r => r.classId)
+            .filter(id => id !== null && id !== undefined)
+            .map(id => Number(id));
+
+          // Fetch all classes and filter for registered ones
+          const classesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/classes/upcoming`);
+          const classesData = await classesResponse.json();
+          
+          if (classesData.success && Array.isArray(classesData.classes)) {
+            const registered = classesData.classes.filter(c => 
+              registeredClassIds.includes(Number(c.id))
+            );
+            setRegisteredClasses(registered);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching registered classes:', error);
+    } finally {
+      setClassesLoading(false);
+    }
+  };
+
   if (loading || isLoading) {
     return (
       <>
         <Header />
         <div className="min-h-screen bg-background flex items-center justify-center">
           <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            <p className="mt-4 text-muted-foreground">Loading...</p>
+            <Loader2 className="inline-block h-12 w-12 animate-spin text-blue-600 mb-4" />
+            <p className="text-muted-foreground">Loading your videos...</p>
           </div>
         </div>
         <Footer />
@@ -90,20 +131,27 @@ export default function VideosPage() {
                 <AlertDescription>
                   {paymentStatus === 'pending' && 'Your payment is pending. Please wait for confirmation.'}
                   {paymentStatus === 'failed' && 'Your payment failed. Please try again.'}
-                  {!paymentStatus && 'You need to purchase a plan to access the videos.'}
+                  {!paymentStatus && 'You need to register for a class or purchase a plan to access the videos.'}
                 </AlertDescription>
               </Alert>
 
               <div className="space-y-3">
                 {paymentStatus !== 'success' && (
-                  <Link href="/register">
-                    <Button className="w-full">
-                      Purchase a Plan
-                    </Button>
-                  </Link>
+                  <>
+                    <Link href="/classes">
+                      <Button className="w-full">
+                        Register for a Class
+                      </Button>
+                    </Link>
+                    <Link href="/register">
+                      <Button variant="outline" className="w-full">
+                        Purchase a Plan
+                      </Button>
+                    </Link>
+                  </>
                 )}
                 <Link href="/">
-                  <Button variant="outline" className="w-full">
+                  <Button variant="ghost" className="w-full">
                     Back to Home
                   </Button>
                 </Link>
@@ -117,57 +165,26 @@ export default function VideosPage() {
   }
 
   // Videos content for paid users
-  const getVideoIcon = (id) => {
-    const iconProps = { className: 'w-12 h-12' };
-    switch(id) {
-      case 1: return <Clapperboard {...iconProps} />;
-      case 2: return <Package {...iconProps} />;
-      case 3: return <TrendingUp {...iconProps} />;
-      case 4: return <Users {...iconProps} />;
-      case 5: return <Megaphone {...iconProps} />;
-      case 6: return <BarChart3 {...iconProps} />;
-      default: return <Play {...iconProps} />;
-    }
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
   };
 
-  const videos = [
-    {
-      id: 1,
-      title: 'Getting Started with Flipkart Masterclass',
-      description: 'Learn the basics and get started with your seller journey on Flipkart.',
-      duration: '12:45',
-    },
-    {
-      id: 2,
-      title: 'Product Listing Best Practices',
-      description: 'Master the art of creating high-converting product listings.',
-      duration: '18:30',
-    },
-    {
-      id: 3,
-      title: 'Optimizing Your Store for Growth',
-      description: 'Strategies to increase visibility and sales on Flipkart.',
-      duration: '22:15',
-    },
-    {
-      id: 4,
-      title: 'Customer Service Excellence',
-      description: 'Build trust and loyalty through excellent customer service.',
-      duration: '15:20',
-    },
-    {
-      id: 5,
-      title: 'Marketing and Promotions',
-      description: 'Leverage promotional tools to boost your sales.',
-      duration: '20:10',
-    },
-    {
-      id: 6,
-      title: 'Advanced Analytics and Metrics',
-      description: 'Understand data to make better business decisions.',
-      duration: '25:45',
-    },
-  ];
+  const formatTime = (timeString) => {
+    const [hours, minutes] = timeString.split(':');
+    const date = new Date();
+    date.setHours(parseInt(hours), parseInt(minutes));
+    return date.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true
+    });
+  };
 
   return (
     <>
@@ -175,42 +192,119 @@ export default function VideosPage() {
       <div className="min-h-screen bg-background py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-12">
-            <h1 className="text-4xl font-bold mb-2">Exclusive Video Content</h1>
+            <h1 className="text-4xl font-bold mb-2">Your Registered Masterclasses</h1>
             <p className="text-muted-foreground text-lg">
-              Welcome, {user?.name}! Access all masterclass videos.
+              Welcome, {user?.name}! Access your registered classes and join the live sessions.
             </p>
           </div>
 
           <Alert className="mb-8 bg-green-50 border-green-200">
             <CheckCircle className="h-4 w-4 text-green-600" />
             <AlertDescription className="text-green-800">
-              Your payment is confirmed. You have access to all premium content.
+              Your registration is confirmed. You have access to all your registered classes.
             </AlertDescription>
           </Alert>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {videos.map((video) => (
-              <Card key={video.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                <div className=" h-40 flex items-center justify-center text-4xl text-black">
-                  {getVideoIcon(video.id)}
-                </div>
-                <CardHeader>
-                  <CardTitle className="line-clamp-2">{video.title}</CardTitle>
-                  <CardDescription className="line-clamp-2">
-                    {video.description}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>Duration: {video.duration}</span>
-                  </div>
-                  <Button className="w-full" variant="default">
-                    <Play className="w-4 h-4 mr-2" />
-                    Watch Video
+          {classesLoading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : registeredClasses.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6 text-center py-12">
+                <Play className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground text-lg mb-4">You haven't registered for any classes yet.</p>
+                <Link href="/classes">
+                  <Button>
+                    Register for a Class
                   </Button>
-                </CardContent>
-              </Card>
-            ))}
+                </Link>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-6">
+              {registeredClasses.map((classItem) => (
+                <Card key={classItem.id} className="overflow-hidden hover:shadow-lg transition-all">
+                  {/* Header with gradient */}
+                  <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
+                    <h3 className="text-2xl font-bold mb-2">{classItem.title}</h3>
+                    <p className="text-blue-100">{classItem.description}</p>
+                  </div>
+
+                  <CardContent className="pt-6">
+                    {/* Class Details */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                      {/* Instructor */}
+                      <div className="flex gap-3">
+                        <User className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-1" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Instructor</p>
+                          <p className="font-semibold">{classItem.instructor}</p>
+                        </div>
+                      </div>
+
+                      {/* Date */}
+                      <div className="flex gap-3">
+                        <Calendar className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-1" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Date</p>
+                          <p className="font-semibold">{formatDate(classItem.class_date)}</p>
+                        </div>
+                      </div>
+
+                      {/* Time */}
+                      <div className="flex gap-3">
+                        <Clock className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-1" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Time (IST)</p>
+                          <p className="font-semibold">{formatTime(classItem.class_time)}</p>
+                        </div>
+                      </div>
+
+                      {/* Duration */}
+                      <div className="flex gap-3">
+                        <Clock className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-1" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Duration</p>
+                          <p className="font-semibold">{classItem.duration_minutes} minutes</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Meeting Link Button */}
+                    {classItem.meeting_link ? (
+                      <a 
+                        href={classItem.meeting_link} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="w-full"
+                      >
+                        <Button className="w-full gap-2" size="lg">
+                          <Play className="h-5 w-5" />
+                          Join Live Class
+                          <ExternalLink className="h-4 w-4 ml-auto" />
+                        </Button>
+                      </a>
+                    ) : (
+                      <Button className="w-full gap-2" size="lg" disabled>
+                        <Play className="h-5 w-5" />
+                        Meeting Link Not Available
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* View More Classes */}
+          <div className="mt-12 text-center">
+            <p className="text-muted-foreground mb-4">Want to register for more classes?</p>
+            <Link href="/classes">
+              <Button variant="outline" size="lg">
+                Browse All Classes
+              </Button>
+            </Link>
           </div>
         </div>
       </div>

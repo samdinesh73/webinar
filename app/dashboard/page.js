@@ -20,7 +20,9 @@ import {
   AlertCircle,
   Zap,
   BookOpen,
-  Trophy
+  Trophy,
+  Clock,
+  Users
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -28,6 +30,9 @@ export default function Dashboard() {
   const router = useRouter();
   const [paymentStatus, setPaymentStatus] = useState(null);
   const [statusLoading, setStatusLoading] = useState(true);
+  const [upcomingClasses, setUpcomingClasses] = useState([]);
+  const [classesLoading, setClassesLoading] = useState(true);
+  const [registeredClasses, setRegisteredClasses] = useState([]);
 
   useEffect(() => {
     if (!loading && !token) {
@@ -47,6 +52,15 @@ export default function Dashboard() {
           });
           const data = await res.json();
           setPaymentStatus(data);
+          
+          // Extract registered classes
+          if (data.registrations) {
+            const registeredIds = data.registrations
+              .map(r => r.classId)
+              .filter(id => id !== null && id !== undefined)
+              .map(id => Number(id));
+            setRegisteredClasses(registeredIds);
+          }
         }
       } catch (error) {
         console.error('Error fetching payment status:', error);
@@ -57,6 +71,25 @@ export default function Dashboard() {
 
     fetchPaymentStatus();
   }, [token]);
+
+  // Fetch upcoming classes
+  useEffect(() => {
+    const fetchClasses = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/classes/upcoming`);
+        const data = await res.json();
+        if (data.success) {
+          setUpcomingClasses(data.classes.slice(0, 3)); // Get top 3 upcoming classes
+        }
+      } catch (error) {
+        console.error('Error fetching classes:', error);
+      } finally {
+        setClassesLoading(false);
+      }
+    };
+
+    fetchClasses();
+  }, []);
 
   if (loading) {
     return (
@@ -315,6 +348,155 @@ export default function Dashboard() {
 
             </div>
 
+          </div>
+
+          {/* Upcoming Classes Section */}
+          <div className="mt-12 pt-8 border-t">
+            
+            {/* Registered Classes */}
+            {registeredClasses.length > 0 && (
+              <div className="mb-12">
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <h2 className="text-2xl font-bold flex items-center gap-2">
+                      <CheckCircle2 className="w-6 h-6 text-green-600" />
+                      Your Registered Classes
+                    </h2>
+                    <p className="text-muted-foreground mt-1">Classes you've successfully registered for</p>
+                  </div>
+                </div>
+
+                {classesLoading ? (
+                  <div className="flex justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {upcomingClasses
+                      .filter(c => registeredClasses.includes(Number(c.id)))
+                      .map((classItem) => (
+                        <Card key={classItem.id} className="overflow-hidden hover:shadow-lg transition-all border-green-200 bg-green-50">
+                          {/* Header with gradient */}
+                          <div className="bg-gradient-to-r from-green-500 to-emerald-500 p-4 text-white">
+                            <h3 className="font-semibold text-lg line-clamp-2">{classItem.title}</h3>
+                          </div>
+
+                          <CardContent className="pt-4">
+                            <div className="space-y-3 text-sm mb-4">
+                              {/* Instructor */}
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <Users className="w-4 h-4 flex-shrink-0" />
+                                <span>{classItem.instructor}</span>
+                              </div>
+
+                              {/* Date */}
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <Calendar className="w-4 h-4 flex-shrink-0" />
+                                <span>{new Date(classItem.class_date).toLocaleDateString()}</span>
+                              </div>
+
+                              {/* Time */}
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <Clock className="w-4 h-4 flex-shrink-0" />
+                                <span>{classItem.class_time}</span>
+                              </div>
+
+                              {/* Duration */}
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <Trophy className="w-4 h-4 flex-shrink-0" />
+                                <span>{classItem.duration_minutes} mins</span>
+                              </div>
+                            </div>
+
+                            {/* Join Button */}
+                            {classItem.meeting_link && (
+                              <a 
+                                href={classItem.meeting_link} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                              >
+                                <Button className="w-full" size="sm">Join Meeting</Button>
+                              </a>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* All Upcoming Classes */}
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                  <Calendar className="w-6 h-6" />
+                  Upcoming Masterclasses
+                </h2>
+                <p className="text-muted-foreground mt-1">Don't miss these upcoming sessions</p>
+              </div>
+              <Link href="/classes">
+                <Button variant="outline">View All Classes</Button>
+              </Link>
+            </div>
+
+            {classesLoading ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : upcomingClasses.length === 0 ? (
+              <Card>
+                <CardContent className="pt-6 text-center py-8">
+                  <p className="text-muted-foreground">No upcoming classes scheduled yet.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {upcomingClasses
+                  .filter(c => !registeredClasses.includes(Number(c.id)))
+                  .map((classItem) => (
+                    <Card key={classItem.id} className="overflow-hidden hover:shadow-lg transition-all">
+                      {/* Header with gradient */}
+                      <div className="bg-gradient-to-r from-purple-500 to-blue-500 p-4 text-white">
+                        <h3 className="font-semibold text-lg line-clamp-2">{classItem.title}</h3>
+                      </div>
+
+                      <CardContent className="pt-4">
+                        <div className="space-y-3 text-sm mb-4">
+                          {/* Instructor */}
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Users className="w-4 h-4 flex-shrink-0" />
+                            <span>{classItem.instructor}</span>
+                          </div>
+
+                          {/* Date */}
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Calendar className="w-4 h-4 flex-shrink-0" />
+                            <span>{new Date(classItem.class_date).toLocaleDateString()}</span>
+                          </div>
+
+                          {/* Time */}
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Clock className="w-4 h-4 flex-shrink-0" />
+                            <span>{classItem.class_time}</span>
+                          </div>
+
+                          {/* Duration */}
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Trophy className="w-4 h-4 flex-shrink-0" />
+                            <span>{classItem.duration_minutes} mins</span>
+                          </div>
+                        </div>
+
+                        {/* Register Button */}
+                        <Link href={`/register?classId=${classItem.id}`} className="block">
+                          <Button className="w-full" size="sm" variant="outline">Register for Class</Button>
+                        </Link>
+                      </CardContent>
+                    </Card>
+                  ))}
+              </div>
+            )}
           </div>
 
         </div>
