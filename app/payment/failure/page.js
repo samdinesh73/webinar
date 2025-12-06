@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { XCircle } from 'lucide-react';
+import { XCircle, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
@@ -17,7 +17,7 @@ export default function PaymentFailure() {
   useEffect(() => {
     // Send failure notification to backend
     if (txnid) {
-      fetch('http://localhost:5000/api/payment/failure', {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payment/failure`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ txnid, error }),
@@ -55,9 +55,10 @@ export default function PaymentFailure() {
               )}
             </div>
 
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex gap-3">
+              <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-yellow-900">
-                ⚠️ Your payment was not successful. Please try again or contact support if you continue to experience issues.
+                Your payment was not successful. Please try again or contact support if you continue to experience issues.
               </p>
             </div>
 

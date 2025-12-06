@@ -193,7 +193,7 @@ function PaymentForm({ user, plan }) {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/payment/initiate', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payment/initiate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -210,11 +210,22 @@ function PaymentForm({ user, plan }) {
 
       const data = await response.json();
 
+      console.log('=== Payment Initiate Response ===');
+      console.log('txnid:', data.payuData?.txnid);
+      console.log('Full PayU data:', data.payuData);
+      console.log('Success URL (surl):', data.payuData?.surl);
+
       if (data.success) {
+        // IMPORTANT: Store txnid in localStorage so we can retrieve it after redirect
+        localStorage.setItem('pending_txnid', data.payuData.txnid);
+        console.log('✓ Stored pending txnid in localStorage:', data.payuData.txnid);
+
         // Create and submit PayU form
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = data.payuBaseUrl + '/_payment';
+
+        console.log('Submitting form to:', form.action);
 
         Object.keys(data.payuData).forEach((key) => {
           const input = document.createElement('input');
@@ -222,9 +233,11 @@ function PaymentForm({ user, plan }) {
           input.name = key;
           input.value = data.payuData[key];
           form.appendChild(input);
+          console.log(`Form field: ${key} = ${data.payuData[key].substring(0, 50)}...`);
         });
 
         document.body.appendChild(form);
+        console.log('Submitting form to PayU...');
         form.submit();
       } else {
         setError(data.message || 'Payment initiation failed');

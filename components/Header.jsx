@@ -4,8 +4,20 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useAuth } from '@/app/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { Menu, X, CircleUser } from 'lucide-react';
+import { Menu, X, Settings, LogOut, LayoutDashboard, Video } from 'lucide-react';
 import { useState } from 'react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
 export default function Header() {
   const { user, token, logout } = useAuth();
@@ -16,6 +28,20 @@ export default function Header() {
     await logout();
     router.push('/');
     setMobileMenuOpen(false);
+  };
+
+  const handleNavigation = (path) => {
+    router.push(path);
+    setMobileMenuOpen(false);
+  };
+
+  // Get initials for avatar
+  const getInitials = (name) => {
+    return name
+      ?.split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase() || 'U';
   };
 
   return (
@@ -45,25 +71,48 @@ export default function Header() {
             </Link>
           </div>
 
-          {/* Desktop Auth Buttons */}
+          {/* Desktop Auth - Avatar Dropdown or Login/Signup */}
           <div className="hidden md:flex items-center gap-4">
             {token && user ? (
-              <>
-                <div className="flex items-center gap-2">
-                  <CircleUser className="w-6 h-6 text-muted-foreground" />
-                  <span className="text-sm font-medium text-muted-foreground">
-                    {user.name}
-                  </span>
-                </div>
-                <Link href="/dashboard">
-                  <Button size="sm" variant="outline">
-                    Dashboard
-                  </Button>
-                </Link>
-                <Button size="sm" onClick={handleLogout} variant="destructive">
-                  Logout
-                </Button>
-              </>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2 hover:opacity-80 transition">
+                    <Avatar>
+                      <AvatarImage src="" alt={user.name} />
+                      <AvatarFallback className="bg-blue-600 text-white">
+                        {getInitials(user.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="hidden lg:block text-left">
+                      <p className="text-sm font-semibold text-foreground">{user.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                    </div>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard" className="cursor-pointer">
+                      My Account
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard" className="cursor-pointer flex items-center gap-2">
+                      <Settings className="w-4 h-4" />
+                      Settings
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="text-red-600 cursor-pointer flex items-center gap-2"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
               <>
                 <Link href="/login">
@@ -95,50 +144,109 @@ export default function Header() {
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden pt-4 pb-4 space-y-4 border-t border-border mt-4">
-            <Link href="/#features" className="block text-sm font-medium text-muted-foreground hover:text-foreground transition">
-              Features
-            </Link>
-            <Link href="/#speakers" className="block text-sm font-medium text-muted-foreground hover:text-foreground transition">
-              Speakers
-            </Link>
-            <Link href="/#schedule" className="block text-sm font-medium text-muted-foreground hover:text-foreground transition">
-              Schedule
-            </Link>
-            <Link href="/#pricing" className="block text-sm font-medium text-muted-foreground hover:text-foreground transition">
-              Pricing
-            </Link>
-            <div className="pt-4 border-t border-border space-y-3">
+          <div className="md:hidden pt-4 pb-4 border-t border-border mt-4">
+            <div className="space-y-4">
+              {/* Navigation Links */}
+              <div className="space-y-2">
+                <Link href="/#features" className="block text-sm font-medium text-muted-foreground hover:text-foreground transition">
+                  Features
+                </Link>
+                <Link href="/#speakers" className="block text-sm font-medium text-muted-foreground hover:text-foreground transition">
+                  Speakers
+                </Link>
+                <Link href="/#schedule" className="block text-sm font-medium text-muted-foreground hover:text-foreground transition">
+                  Schedule
+                </Link>
+                <Link href="/#pricing" className="block text-sm font-medium text-muted-foreground hover:text-foreground transition">
+                  Pricing
+                </Link>
+              </div>
+
+              <Separator />
+
+              {/* User Section */}
               {token && user ? (
-                <>
-                  <div className="flex items-center gap-2 mb-3">
-                    <CircleUser className="w-6 h-6 text-muted-foreground" />
-                    <span className="text-sm font-medium text-muted-foreground">
-                      {user.name}
-                    </span>
+                <Card className="p-4 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+                  {/* User Profile Card */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage src="" alt={user.name} />
+                        <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-700 text-white font-bold text-lg">
+                          {getInitials(user.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-foreground truncate">{user.name}</h3>
+                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                      </div>
+                    </div>
+
+                    {/* Account Section */}
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">My Account</p>
+                      <div className="space-y-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="w-full justify-start gap-2"
+                          onClick={() => handleNavigation('/dashboard')}
+                        >
+                          <LayoutDashboard className="w-4 h-4" />
+                          Dashboard
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="w-full justify-start gap-2"
+                          onClick={() => handleNavigation('/videos')}
+                        >
+                          <Video className="w-4 h-4" />
+                          My Classes
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="w-full justify-start gap-2"
+                          onClick={() => handleNavigation('/dashboard')}
+                        >
+                          <Settings className="w-4 h-4" />
+                          Settings
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Logout Button */}
+                    <Button 
+                      size="sm" 
+                      variant="destructive" 
+                      className="w-full justify-start gap-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800"
+                      onClick={handleLogout}
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Logout
+                    </Button>
                   </div>
-                  <Link href="/dashboard">
-                    <Button size="sm" variant="outline" className="w-full">
-                      Dashboard
-                    </Button>
-                  </Link>
-                  <Button size="sm" onClick={handleLogout} variant="destructive" className="w-full">
-                    Logout
-                  </Button>
-                </>
+                </Card>
               ) : (
-                <>
-                  <Link href="/login">
-                    <Button size="sm" variant="outline" className="w-full">
-                      Login
-                    </Button>
-                  </Link>
-                  <Link href="/signup">
-                    <Button size="sm" className="w-full">
-                      Sign Up
-                    </Button>
-                  </Link>
-                </>
+                <Card className="p-4 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+                  <div className="space-y-3">
+                    <p className="text-sm font-semibold text-foreground">Get Started</p>
+                    <Link href="/login" className="block">
+                      <Button size="sm" variant="outline" className="w-full">
+                        Login
+                      </Button>
+                    </Link>
+                    <Link href="/signup" className="block">
+                      <Button 
+                        size="sm" 
+                        className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+                      >
+                        Sign Up
+                      </Button>
+                    </Link>
+                  </div>
+                </Card>
               )}
             </div>
           </div>

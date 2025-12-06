@@ -2,35 +2,43 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { User, Code, Zap, Truck } from 'lucide-react';
 
 export default function Speakers() {
+  const getIconComponent = (index) => {
+    const iconProps = { className: 'w-12 h-12 text-blue-600 mx-auto mb-4' };
+    switch(index) {
+      case 0: return <User {...iconProps} />;
+      case 1: return <Code {...iconProps} />;
+      case 2: return <Zap {...iconProps} />;
+      case 3: return <Truck {...iconProps} />;
+      default: return <User {...iconProps} />;
+    }
+  };
+
   const speakers = [
     {
       name: 'Sarah Anderson',
       title: 'Lead Seller Growth at Flipkart',
       bio: 'Growth expert helping sellers scale to 7+ figures.',
-      image: '👩‍💼',
       topic: 'Seller Growth Hacks',
     },
     {
       name: 'Michael Chen',
       title: 'Flipkart Marketplace Director',
       bio: 'Expert in marketplace optimization and product strategy.',
-      image: '👨‍💻',
       topic: 'Product Optimization',
     },
     {
       name: 'Emma Rodriguez',
       title: 'Marketing Lead at Flipkart',
       bio: 'Specialist in seller marketing and brand building.',
-      image: '👩‍🔬',
       topic: 'Marketing & Branding',
     },
     {
       name: 'James Wilson',
       title: 'Operations Expert',
       bio: 'Logistics and fulfillment specialist.',
-      image: '👨‍💼',
       topic: 'Logistics & Fulfillment',
     },
   ];
@@ -51,7 +59,9 @@ export default function Speakers() {
           {speakers.map((speaker, index) => (
             <Card key={index} className="hover:shadow-lg transition-shadow text-center">
               <CardHeader>
-                <div className="text-6xl mb-4 flex justify-center">{speaker.image}</div>
+                <div className="flex justify-center mb-4">
+                  {getIconComponent(index)}
+                </div>
                 <CardTitle>{speaker.name}</CardTitle>
                 <CardDescription className="text-primary font-semibold">
                   {speaker.title}

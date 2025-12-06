@@ -8,7 +8,7 @@ import Footer from '@/components/Footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, Play, Lock } from 'lucide-react';
+import { AlertCircle, Play, Lock, Clapperboard, Package, TrendingUp, Users, Megaphone, BarChart3, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export default function VideosPage() {
@@ -31,7 +31,7 @@ export default function VideosPage() {
 
   const checkPaymentStatus = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/payment/check-status', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payment/check-status`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -117,48 +117,55 @@ export default function VideosPage() {
   }
 
   // Videos content for paid users
+  const getVideoIcon = (id) => {
+    const iconProps = { className: 'w-12 h-12' };
+    switch(id) {
+      case 1: return <Clapperboard {...iconProps} />;
+      case 2: return <Package {...iconProps} />;
+      case 3: return <TrendingUp {...iconProps} />;
+      case 4: return <Users {...iconProps} />;
+      case 5: return <Megaphone {...iconProps} />;
+      case 6: return <BarChart3 {...iconProps} />;
+      default: return <Play {...iconProps} />;
+    }
+  };
+
   const videos = [
     {
       id: 1,
       title: 'Getting Started with Flipkart Masterclass',
       description: 'Learn the basics and get started with your seller journey on Flipkart.',
       duration: '12:45',
-      thumbnail: '🎬',
     },
     {
       id: 2,
       title: 'Product Listing Best Practices',
       description: 'Master the art of creating high-converting product listings.',
       duration: '18:30',
-      thumbnail: '📦',
     },
     {
       id: 3,
       title: 'Optimizing Your Store for Growth',
       description: 'Strategies to increase visibility and sales on Flipkart.',
       duration: '22:15',
-      thumbnail: '📈',
     },
     {
       id: 4,
       title: 'Customer Service Excellence',
       description: 'Build trust and loyalty through excellent customer service.',
       duration: '15:20',
-      thumbnail: '👥',
     },
     {
       id: 5,
       title: 'Marketing and Promotions',
       description: 'Leverage promotional tools to boost your sales.',
       duration: '20:10',
-      thumbnail: '📢',
     },
     {
       id: 6,
       title: 'Advanced Analytics and Metrics',
       description: 'Understand data to make better business decisions.',
       duration: '25:45',
-      thumbnail: '📊',
     },
   ];
 
@@ -175,17 +182,17 @@ export default function VideosPage() {
           </div>
 
           <Alert className="mb-8 bg-green-50 border-green-200">
-            <AlertCircle className="h-4 w-4 text-green-600" />
+            <CheckCircle className="h-4 w-4 text-green-600" />
             <AlertDescription className="text-green-800">
-              ✓ Your payment is confirmed. You have access to all premium content.
+              Your payment is confirmed. You have access to all premium content.
             </AlertDescription>
           </Alert>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {videos.map((video) => (
               <Card key={video.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="bg-gradient-to-br from-blue-400 to-purple-500 h-40 flex items-center justify-center text-6xl">
-                  {video.thumbnail}
+                <div className=" h-40 flex items-center justify-center text-4xl text-black">
+                  {getVideoIcon(video.id)}
                 </div>
                 <CardHeader>
                   <CardTitle className="line-clamp-2">{video.title}</CardTitle>

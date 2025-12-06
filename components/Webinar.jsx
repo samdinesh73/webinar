@@ -2,6 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Calendar, Users, FileText } from 'lucide-react';
 
 export default function Webinar() {
   return (
@@ -18,7 +19,10 @@ export default function Webinar() {
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
-                  <h3 className="text-xl font-semibold text-blue-900 mb-3">📅 Schedule</h3>
+                  <div className="flex items-center gap-3 mb-3">
+                    <Calendar className="w-5 h-5 text-blue-900" />
+                    <h3 className="text-xl font-semibold text-blue-900">Schedule</h3>
+                  </div>
                   <p className="text-gray-700">
                     Date: December 15, 2025
                     <br />
@@ -26,7 +30,10 @@ export default function Webinar() {
                   </p>
                 </div>
                 <div className="bg-indigo-50 p-6 rounded-lg border border-indigo-200">
-                  <h3 className="text-xl font-semibold text-indigo-900 mb-3">👥 Speakers</h3>
+                  <div className="flex items-center gap-3 mb-3">
+                    <Users className="w-5 h-5 text-indigo-900" />
+                    <h3 className="text-xl font-semibold text-indigo-900">Speakers</h3>
+                  </div>
                   <p className="text-gray-700">
                     Expert professionals from leading tech companies
                   </p>
@@ -34,7 +41,10 @@ export default function Webinar() {
               </div>
 
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">📝 Topics Covered</h3>
+                <div className="flex items-center gap-3 mb-3">
+                  <FileText className="w-5 h-5 text-gray-900" />
+                  <h3 className="text-xl font-semibold text-gray-900">Topics Covered</h3>
+                </div>
                 <ul className="list-disc list-inside space-y-2 text-gray-700">
                   <li>Introduction to modern web development</li>
                   <li>Best practices in UI/UX design</li>

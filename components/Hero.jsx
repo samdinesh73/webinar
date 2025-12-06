@@ -2,17 +2,27 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ShoppingCart, BarChart3, DollarSign, TrendingUp } from 'lucide-react';
 
 export default function Hero() {
   const [currentSlide, setCurrentSlide] = useState(0);
+
+  const getSlideIcon = (id) => {
+    const iconProps = { className: 'w-24 h-24' };
+    switch(id) {
+      case 1: return <ShoppingCart {...iconProps} />;
+      case 2: return <BarChart3 {...iconProps} />;
+      case 3: return <DollarSign {...iconProps} />;
+      case 4: return <TrendingUp {...iconProps} />;
+      default: return <ShoppingCart {...iconProps} />;
+    }
+  };
 
   const slides = [
     {
       id: 1,
       title: 'Grow Your Business on Flipkart',
       subtitle: 'Learn proven strategies to boost your sales and reach millions of customers',
-      image: '🛍️',
       color: 'from-blue-100 to-cyan-100',
       textColor: 'text-blue-900',
     },
@@ -20,7 +30,6 @@ export default function Hero() {
       id: 2,
       title: 'Optimize Your Product Listings',
       subtitle: 'Master SEO, keywords, and descriptions to rank higher on Flipkart',
-      image: '📊',
       color: 'from-purple-100 to-pink-100',
       textColor: 'text-purple-900',
     },
@@ -28,7 +37,6 @@ export default function Hero() {
       id: 3,
       title: 'Maximize Your Profits',
       subtitle: 'Understand pricing, margins, and logistics to increase your ROI',
-      image: '💰',
       color: 'from-green-100 to-emerald-100',
       textColor: 'text-green-900',
     },
@@ -36,7 +44,6 @@ export default function Hero() {
       id: 4,
       title: 'Scale Your Brand',
       subtitle: 'Advanced marketing tactics and customer retention strategies',
-      image: '📈',
       color: 'from-amber-100 to-orange-100',
       textColor: 'text-amber-900',
     },
@@ -98,8 +105,8 @@ export default function Hero() {
 
                   {/* Right Image */}
                   <div className="flex justify-center items-center order-1 md:order-2">
-                    <div className="text-9xl md:text-[120px] animate-bounce">
-                      {slide.image}
+                    <div className="text-blue-600 animate-bounce">
+                      {getSlideIcon(slide.id)}
                     </div>
                   </div>
                 </div>
