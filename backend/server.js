@@ -553,74 +553,57 @@ app.post('/api/payment/initiate', verifyToken, async (req, res) => {
 
 // Payment Success Callback
 app.post('/api/payment/success', async (req, res) => {
-  let connection;
   try {
     const { txnid } = req.body;
 
-    console.log('\n========== PAYMENT SUCCESS ENDPOINT ==========');
+    console.log('=== Payment Success Endpoint (Frontend Callback) ===');
     console.log('Received txnid:', txnid);
-    console.log('Request body:', req.body);
+    console.log('Full body:', req.body);
 
-    // Validate txnid
     if (!txnid) {
-      console.warn('❌ No txnid provided');
-      return res.status(400).json({ 
-        success: false, 
-        message: 'txnid is required' 
-      });
+      console.warn('⚠️  WARNING: No txnid provided in request body!');
+      console.warn('This means PayU might not have sent the txnid in the redirect URL');
+      return res.status(400).json({ success: false, message: 'txnid is required' });
     }
 
-    // Get database connection
-    connection = await pool.getConnection();
+    const connection = await pool.getConnection();
     
-    // Check if payment record exists
-    console.log('Checking for payment with txnid:', txnid);
-    const [payments] = await connection.query(
-      'SELECT * FROM payments WHERE txn_id = ? LIMIT 1',
+    // First, check if the transaction exists in database
+    const [existingPayment] = await connection.query(
+      'SELECT * FROM payments WHERE txn_id = ?',
       [txnid]
     );
+    
+    console.log('Existing payment record:', existingPayment);
 
-    if (!payments || payments.length === 0) {
-      console.warn('❌ Payment record not found for txnid:', txnid);
-      await connection.release();
-      return res.json({ 
-        success: false, 
-        message: 'Payment not found',
-        txnid: txnid
-      });
+    if (!existingPayment || existingPayment.length === 0) {
+      console.log('❌ No matching payment found for txnid:', txnid);
+      connection.release();
+      return res.status(404).json({ success: false, message: 'Payment record not found', txnid: txnid });
     }
 
-    const payment = payments[0];
-    console.log('✓ Payment found:', {
-      id: payment.id,
-      user_id: payment.user_id,
-      amount: payment.amount,
-      current_status: payment.status
-    });
+    const payment = existingPayment[0];
+    const userId = payment.user_id;
 
-    // Update payment status
-    console.log('Updating payment status to success...');
-    await connection.query(
-      'UPDATE payments SET status = ?, updated_at = NOW() WHERE id = ?',
-      ['success', payment.id]
+    // Get user details for email
+    const [userData] = await connection.query(
+      'SELECT name, email, phone FROM user WHERE id = ?',
+      [userId]
     );
 
-    console.log('✓ Payment status updated successfully');
-
-    // Get user details
-    const [users] = await connection.query(
-      'SELECT id, name, email, phone FROM user WHERE id = ?',
-      [payment.user_id]
+    const result = await connection.query(
+      'UPDATE payments SET status = ?, updated_at = NOW() WHERE txn_id = ?',
+      ['success', txnid]
     );
+    
+    console.log('Update result:', result);
+    console.log('✓ Payment marked as SUCCESS for txnid:', txnid);
+    
+    connection.release();
 
-    await connection.release();
-    connection = null;
-
-    // Send emails (non-blocking)
-    if (users && users.length > 0) {
-      const user = users[0];
-      console.log('📧 Sending confirmation emails to:', user.email);
-      
+    // Send emails after successful payment update
+    if (userData && userData.length > 0) {
+      const user = userData[0];
       const emailData = {
         firstname: user.name,
         email: user.email,
@@ -630,83 +613,43 @@ app.post('/api/payment/success', async (req, res) => {
         txnId: txnid,
       };
 
-      // Fire emails in background
-      sendPaymentConfirmationEmail(user.email, emailData).catch(err => {
-        console.error('Email error (non-blocking):', err.message);
-      });
-
-      sendClassDetailsEmail(user.email, emailData).catch(err => {
-        console.error('Email error (non-blocking):', err.message);
+      console.log('📧 Sending confirmation emails to:', user.email);
+      
+      // Send both emails in parallel
+      Promise.all([
+        sendPaymentConfirmationEmail(user.email, emailData),
+        sendClassDetailsEmail(user.email, emailData),
+      ]).then(results => {
+        console.log('✓ Payment confirmation email sent:', results[0]);
+        console.log('✓ Class details email sent:', results[1]);
+      }).catch(error => {
+        console.error('Error sending emails:', error);
       });
     }
 
-    // Return success
-    console.log('✓ Payment success endpoint completed successfully\n');
-    res.json({ 
-      success: true, 
-      message: 'Payment recorded successfully',
-      txnid: txnid 
-    });
-
+    res.json({ success: true, message: 'Payment recorded', txnid: txnid });
   } catch (error) {
-    console.error('❌ ERROR in payment success:', error.message);
-    console.error('Stack:', error.stack);
-    
-    if (connection) {
-      try {
-        await connection.release();
-      } catch (e) {
-        console.error('Error releasing connection:', e.message);
-      }
-    }
-
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error recording payment',
-      error: error.message 
-    });
+    console.error('Payment success error:', error);
+    res.status(500).json({ success: false, message: 'Error recording payment', error: error.message });
   }
 });
 
 // Payment Failure Callback
 app.post('/api/payment/failure', async (req, res) => {
-  let connection;
   try {
     const { txnid } = req.body;
 
-    console.log('\n========== PAYMENT FAILURE ENDPOINT ==========');
-    console.log('Received txnid:', txnid);
-
-    if (!txnid) {
-      console.warn('No txnid provided in failure callback');
-      return res.json({ success: true }); // Still return 200 OK
-    }
-
-    connection = await pool.getConnection();
-    
+    const connection = await pool.getConnection();
     await connection.query(
       'UPDATE payments SET status = ?, updated_at = NOW() WHERE txn_id = ?',
       ['failed', txnid]
     );
-
-    console.log('✓ Payment marked as FAILED for txnid:', txnid);
-    await connection.release();
-    connection = null;
+    connection.release();
 
     res.json({ success: true, message: 'Payment failure recorded' });
-
   } catch (error) {
-    console.error('❌ Payment failure error:', error.message);
-    
-    if (connection) {
-      try {
-        await connection.release();
-      } catch (e) {
-        console.error('Error releasing connection:', e.message);
-      }
-    }
-
-    res.json({ success: true }); // Still return OK to PayU
+    console.error('Payment failure error:', error);
+    res.status(500).json({ success: false, message: 'Error recording payment failure' });
   }
 });
 
